@@ -1,0 +1,2082 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P&L - Trading Journal</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <style>
+        :root { --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-tertiary: #334155; --text-primary: #f1f5f9; --text-secondary: #94a3b8; --border: #475569; }
+        .light { --bg-primary: #f8fafc; --bg-secondary: #ffffff; --bg-tertiary: #e2e8f0; --text-primary: #1e293b; --text-secondary: #64748b; --border: #cbd5e1; }
+        body { background: var(--bg-primary); color: var(--text-primary); transition: all 0.3s; }
+        .card { background: var(--bg-secondary); border-color: var(--border); }
+        .card-inner { background: var(--bg-tertiary); }
+        .text-muted { color: var(--text-secondary); }
+        .profit { color: #22c55e; }
+        .loss { color: #ef4444; }
+        .nav-btn.active { background: rgba(59, 130, 246, 0.3); color: #3b82f6; }
+        .dropdown-item:hover { background: rgba(59, 130, 246, 0.2); }
+        .modal { backdrop-filter: blur(4px); }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-slide { animation: slideIn 0.3s ease-out; }
+        .animate-fade { animation: fadeIn 0.3s ease-out; }
+        .page { display: none; }
+        .page.active { display: block; }
+        input, select, textarea { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border); }
+        input::placeholder, textarea::placeholder { color: var(--text-secondary); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .fab { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); z-index: 25; transition: transform 0.2s, box-shadow 0.2s; }
+        .fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5); }
+        .fab:active { transform: scale(0.96); }
+        .fade-transition { transition: opacity 0.4s ease, transform 0.4s ease; }
+        .fade-out { opacity: 0; transform: scale(0.98); }
+        .currency-value { transition: all 0.4s ease; }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+    <!-- Auth Screen -->
+    <div id="authScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="card border rounded-2xl p-8 w-full max-w-md animate-slide">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-12 h-12 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <polyline points="6,15 9,10 12,13 15,8 18,10" stroke="#22c55e"/>
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-bold">P&L</h1>
+                <p class="text-muted">Trading Journal</p>
+            </div>
+
+            <div id="loginForm">
+                <div class="space-y-4">
+                    <input type="email" id="loginEmail" class="w-full border rounded-lg p-3" placeholder="Email">
+                    <input type="password" id="loginPassword" class="w-full border rounded-lg p-3" placeholder="Пароль">
+
+                    <label class="flex items-center gap-2 text-sm text-muted">
+                        <input id="rememberMeLogin" type="checkbox" class="w-4 h-4" checked>
+                        <span data-i18n="rememberMe">Запомнить меня</span>
+                    </label>
+
+                    <button onclick="login()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium" data-i18n="login">Войти</button>
+                    <p class="text-center text-muted text-sm"><span data-i18n="noAccount">Нет аккаунта?</span> <button onclick="showRegister()" class="text-blue-400" data-i18n="register">Зарегистрироваться</button></p>
+                </div>
+            </div>
+
+            <div id="registerForm" class="hidden">
+                <div class="space-y-4">
+                    <input type="email" id="regEmail" class="w-full border rounded-lg p-3" placeholder="Email">
+                    <input type="password" id="regPassword" class="w-full border rounded-lg p-3" placeholder="Пароль">
+                    <input type="password" id="regConfirm" class="w-full border rounded-lg p-3" placeholder="Подтвердите пароль">
+
+                    <label class="flex items-center gap-2 text-sm text-muted">
+                        <input id="rememberMeRegister" type="checkbox" class="w-4 h-4" checked>
+                        <span data-i18n="rememberMe">Запомнить меня</span>
+                    </label>
+
+                    <button onclick="register()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium" data-i18n="register">Зарегистрироваться</button>
+                    <p class="text-center text-muted text-sm"><span data-i18n="hasAccount">Есть аккаунт?</span> <button onclick="showLogin()" class="text-blue-400" data-i18n="login">Войти</button></p>
+                </div>
+            </div>
+
+            <p id="authError" class="text-red-400 text-sm text-center mt-3 hidden"></p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden">
+        <!-- Header -->
+        <header class="sticky top-0 z-30 card border-b p-4">
+            <div class="max-w-6xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <polyline points="6,15 9,10 12,13 15,8 18,10" stroke="#22c55e"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">P&L</h1>
+                        <p class="text-xs text-muted" id="userEmail"></p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button id="installBtn" onclick="installPWA()" class="hidden p-2 rounded-lg hover:bg-blue-500/20" title="Install">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10l5 5 5-5"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15V3"/>
+                        </svg>
+                    </button>
+                    <button onclick="openSettings()" class="p-2 rounded-lg hover:bg-blue-500/20" title="Settings">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button onclick="logout()" class="p-2 rounded-lg hover:bg-red-500/20 text-red-400" title="Logout">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- FAB Button -->
+        <button onclick="openTradeModal()" class="fab flex items-center justify-center text-white" title="Добавить сделку">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        </button>
+
+        <!-- Page: Dashboard -->
+        <div id="pageDashboard" class="page active max-w-6xl mx-auto p-4 fade-transition">
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="card border rounded-2xl p-4">
+                    <p class="text-muted text-sm" data-i18n="totalPnl">Общий P&L</p>
+                    <p id="totalPnl" class="text-2xl font-bold currency-value">$0.00</p>
+                    <div class="mt-1 flex items-center justify-between gap-2">
+                        <p class="text-xs text-muted">
+                            <span data-i18n="accountSize">Размер аккаунта</span>:
+                            <span id="accountSizeValue" class="currency-value"></span>
+                        </p>
+                        <button onclick="openAccountModal()" class="text-blue-400 text-xs hover:underline" data-i18n="edit">Изменить</button>
+                    </div>
+                </div>
+                <div class="card border rounded-2xl p-4">
+                    <p class="text-muted text-sm">Win Rate</p>
+                    <p id="winRate" class="text-2xl font-bold">0%</p>
+                </div>
+                <div class="card border rounded-2xl p-4">
+                    <p class="text-muted text-sm" data-i18n="totalTrades">Всего сделок</p>
+                    <p id="totalTrades" class="text-2xl font-bold">0</p>
+                    <p class="text-xs mt-1"><span class="text-green-400">L:</span> <span id="longCount">0</span> | <span class="text-red-400">S:</span> <span id="shortCount">0</span></p>
+                </div>
+            </div>
+
+            <!-- Equity Curve -->
+            <div class="card border rounded-2xl p-4 mb-6">
+                <h2 class="font-semibold mb-2" data-i18n="equityCurve">Кривая баланса</h2>
+                <div style="height: 72px;">
+                    <canvas id="equityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Advanced Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="card border rounded-xl p-4">
+                    <p class="text-muted text-xs" data-i18n="avgWinLoss">Avg Win / Avg Loss</p>
+                    <p id="avgWinLoss" class="text-lg font-bold currency-value">$0 / $0</p>
+                </div>
+                <div class="card border rounded-xl p-4">
+                    <p class="text-muted text-xs">Max Drawdown</p>
+                    <p id="maxDrawdown" class="text-lg font-bold loss">0%</p>
+                </div>
+                <div class="card border rounded-xl p-4">
+                    <p class="text-muted text-xs" data-i18n="avgRR">Avg Risk/Reward</p>
+                    <p id="avgRR" class="text-lg font-bold">1:0</p>
+                </div>
+                <div class="card border rounded-xl p-4">
+                    <p class="text-muted text-xs" data-i18n="bestTrade">Лучшая сделка</p>
+                    <p id="bestTrade" class="text-lg font-bold profit currency-value">$0</p>
+                </div>
+                <div class="card border rounded-xl p-4">
+                    <p class="text-muted text-xs" data-i18n="worstTrade">Худшая сделка</p>
+                    <p id="worstTrade" class="text-lg font-bold loss currency-value">$0</p>
+                </div>
+                <div class="card border rounded-xl p-4">
+                    <p class="text-muted text-xs" data-i18n="winLoss">Выигрыши / Проигрыши</p>
+                    <p id="winLossCount" class="text-lg font-bold"><span class="profit">0</span> / <span class="loss">0</span></p>
+                </div>
+            </div>
+
+            <!-- Goals -->
+            <div class="card border rounded-2xl p-5 mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-semibold" data-i18n="goals">Цели</h2>
+                    <button onclick="openGoalModal()" class="text-blue-400 text-sm">+ <span data-i18n="add">Добавить</span></button>
+                </div>
+                <div id="goalsList"></div>
+            </div>
+
+            <!-- Recent Trades -->
+            <div class="card border rounded-2xl p-5 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-semibold" data-i18n="recentTrades">Последние сделки</h2>
+                </div>
+                <div id="tradesList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+            </div>
+
+            <!-- Strategies -->
+            <div class="card border rounded-2xl p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-semibold" data-i18n="strategies">Стратегии</h2>
+                    <button onclick="openStrategyModal()" class="text-blue-400 text-sm">+ <span data-i18n="add">Добавить</span></button>
+                </div>
+                <div id="strategiesList"></div>
+            </div>
+        </div>
+
+        <!-- Page: Calendar -->
+        <div id="pageCalendar" class="page max-w-6xl mx-auto p-4 fade-transition">
+            <div class="card border rounded-2xl p-5 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="prevMonth()" class="p-2 hover:bg-blue-500/20 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <h2 id="calendarTitle" class="font-semibold text-lg"></h2>
+                    <button onclick="nextMonth()" class="p-2 hover:bg-blue-500/20 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center text-sm mb-2" id="weekDays"></div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+            </div>
+
+            <!-- Day Details -->
+            <div id="dayDetails" class="card border rounded-2xl p-5 hidden">
+                <h3 id="dayDetailsTitle" class="font-semibold mb-3"></h3>
+                <div id="dayTradesList" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- Page: Analytics -->
+        <div id="pageAnalytics" class="page max-w-6xl mx-auto p-4 fade-transition">
+            <!-- By Time -->
+            <div class="card border rounded-2xl p-5 mb-6">
+                <h2 class="font-semibold mb-4" data-i18n="pnlByTime">P&L по времени</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-muted text-sm mb-2" data-i18n="byDayOfWeek">По дням недели</p>
+                        <canvas id="chartByDay" height="200"></canvas>
+                    </div>
+                    <div>
+                        <p class="text-muted text-sm mb-2" data-i18n="byMonth">По месяцам</p>
+                        <canvas id="chartByMonth" height="200"></canvas>
+                    </div>
+                    <div>
+                        <p class="text-muted text-sm mb-2" data-i18n="byHour">По часам</p>
+                        <canvas id="chartByHour" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- By Asset -->
+            <div class="card border rounded-2xl p-5 mb-6">
+                <h2 class="font-semibold mb-4" data-i18n="analysisByAssets">Анализ по активам</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <canvas id="chartByAsset" height="250"></canvas>
+                    </div>
+                    <div id="assetTable" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+            <!-- Long vs Short -->
+            <div class="card border rounded-2xl p-5">
+                <h2 class="font-semibold mb-4">Long vs Short</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <canvas id="chartLongShort" height="200"></canvas>
+                    <div id="longShortStats" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 card border-t z-30">
+            <div class="max-w-6xl mx-auto flex justify-around py-2">
+                <button onclick="showPage('Dashboard')" class="nav-btn active flex flex-col items-center p-2 rounded-lg" id="navDashboard">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <span class="text-xs mt-1" data-i18n="home">Главная</span>
+                </button>
+                <button onclick="showPage('Calendar')" class="nav-btn flex flex-col items-center p-2 rounded-lg" id="navCalendar">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span class="text-xs mt-1" data-i18n="calendar">Календарь</span>
+                </button>
+                <button onclick="showPage('Analytics')" class="nav-btn flex flex-col items-center p-2 rounded-lg" id="navAnalytics">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <span class="text-xs mt-1" data-i18n="analytics">Аналитика</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-50">
+        <div class="card border rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" data-i18n="settings">Настройки</h3>
+                <button onclick="closeSettingsCancel()" class="text-muted hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <div class="space-y-5">
+                <!-- Theme -->
+                <div>
+                    <label class="block text-sm text-muted mb-2" data-i18n="theme">Тема</label>
+                    <div class="flex gap-2">
+                        <button onclick="setTempTheme('dark')" id="btnDark" class="flex-1 card border rounded-lg p-3 flex items-center justify-center gap-2">🌙 <span data-i18n="dark">Тёмная</span></button>
+                        <button onclick="setTempTheme('light')" id="btnLight" class="flex-1 card border rounded-lg p-3 flex items-center justify-center gap-2">☀️ <span data-i18n="light">Светлая</span></button>
+                    </div>
+                </div>
+
+                <!-- Account size -->
+                <div>
+                    <label class="block text-sm text-muted mb-2" data-i18n="accountSize">Размер аккаунта</label>
+                    <input type="text" inputmode="decimal" id="accountSizeInput" class="w-full border rounded-lg p-3" placeholder="1000" oninput="onAccountSizeInput()">
+                    <p class="text-xs text-muted mt-2" data-i18n="accountSizeHint">Введите размер аккаунта в выбранной валюте</p>
+                </div>
+
+                <!-- Language -->
+                <div>
+                    <label class="block text-sm text-muted mb-2" data-i18n="language">Язык</label>
+                    <input type="text" id="langSearch" class="w-full border rounded-lg p-3 mb-2" placeholder="Поиск языка..." oninput="filterLangs()">
+                    <div id="langList" class="max-h-40 overflow-y-auto space-y-1"></div>
+                </div>
+
+                <!-- Currency -->
+                <div>
+                    <label class="block text-sm text-muted mb-2" data-i18n="currency">Валюта</label>
+                    <input type="text" id="currencySearch" class="w-full border rounded-lg p-3 mb-2" placeholder="Поиск валюты..." oninput="filterCurrencies()">
+                    <div id="currencyList" class="max-h-40 overflow-y-auto space-y-1"></div>
+                </div>
+
+                <!-- Notifications -->
+                <div>
+                    <label class="block text-sm text-muted mb-2" data-i18n="notifications">Уведомления</label>
+                    <label class="flex items-center gap-3 card-inner rounded-lg p-3 cursor-pointer">
+                        <input type="checkbox" id="notifyEnabled" class="w-5 h-5 rounded">
+                        <div>
+                            <p data-i18n="reminderAt20">Напоминание в 20:00</p>
+                            <p class="text-xs text-muted" data-i18n="reminderDesc">Записать сделки за день</p>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Install / APK -->
+                <div class="pt-2">
+                    <label class="block text-sm text-muted mb-2">Android / APK</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <a href="icon-512.svg" download="pnl-icon.svg" class="card border rounded-lg p-3 text-center hover:bg-blue-500/10">⬇️ <span>Скачать иконку</span></a>
+                        <button type="button" onclick="openApkModal()" class="card border rounded-lg p-3 text-center hover:bg-blue-500/10">📦 <span>Как скачать APK</span></button>
+                    </div>
+                    <p class="text-xs text-muted mt-2">APK нельзя “сгенерировать” прямо в браузере: он делается из PWA через сборщик.</p>
+                </div>
+
+                <!-- Buttons OK/Cancel -->
+                <div class="flex gap-3 pt-4 border-t border-gray-700">
+                    <button onclick="closeSettingsCancel()" class="flex-1 card border rounded-lg py-3 font-medium hover:bg-red-500/20" data-i18n="cancel">Отмена</button>
+                    <button onclick="closeSettingsOk()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Size Modal -->
+    <div id="accountModal" class="modal fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-50">
+        <div class="card border rounded-2xl p-6 w-full max-w-md animate-slide">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" data-i18n="accountSize">Размер аккаунта</h3>
+                <button onclick="closeAccountModal()" class="text-muted hover:text-white text-2xl">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <p class="text-sm text-muted" data-i18n="accountSizeHint">Введите размер аккаунта в выбранной валюте</p>
+                <input type="text" inputmode="decimal" id="accountModalInput" class="w-full border rounded-lg p-3" placeholder="1000">
+                <p id="accountModalError" class="text-red-400 text-sm text-center hidden"></p>
+                <div class="flex gap-3">
+                    <button onclick="closeAccountModal()" class="flex-1 card border rounded-lg py-3 font-medium" data-i18n="later">Позже</button>
+                    <button onclick="saveAccountSizeFromModal()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium" data-i18n="save">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trade Modal -->
+    <div id="tradeModal" class="modal fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-50">
+        <div class="card border rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto animate-slide">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" data-i18n="newTrade">Новая сделка</h3>
+                <button onclick="closeTradeModal()" class="text-muted hover:text-white text-2xl">&times;</button>
+            </div>
+            <form id="tradeForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm text-muted mb-1" data-i18n="date">Дата</label>
+                        <input type="date" id="tradeDate" class="w-full border rounded-lg p-3" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-muted mb-1" data-i18n="time">Время</label>
+                        <input type="time" id="tradeTime" class="w-full border rounded-lg p-3">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-muted mb-1" data-i18n="pair">Пара/Актив</label>
+                    <input type="text" id="tradePair" class="w-full border rounded-lg p-3" placeholder="BTC/USDT" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-muted mb-1" data-i18n="strategy">Стратегия</label>
+                    <select id="tradeStrategy" class="w-full border rounded-lg p-3"></select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm text-muted mb-1" data-i18n="type">Тип</label>
+                        <select id="tradeType" class="w-full border rounded-lg p-3">
+                            <option value="long">Long</option>
+                            <option value="short">Short</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-muted mb-1" data-i18n="result">Результат</label>
+                        <input type="text" inputmode="decimal" id="tradeResult" class="w-full border rounded-lg p-3" placeholder="+7$ / -2$" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-muted mb-1">R:R (опц.)</label>
+                    <input type="text" id="tradeRR" class="w-full border rounded-lg p-3" placeholder="1:3">
+                </div>
+
+                <div>
+                    <label class="block text-sm text-muted mb-1" data-i18n="notes">Заметки</label>
+                    <textarea id="tradeNotes" class="w-full border rounded-lg p-3 h-20" placeholder="Описание сделки..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm text-muted mb-1" data-i18n="screenshot">Скриншот</label>
+                    <input type="file" id="tradeImage" accept="image/*" class="hidden" onchange="previewImg(this)">
+                    <button type="button" onclick="document.getElementById('tradeImage').click()" class="w-full card-inner border-2 border-dashed rounded-lg p-4 text-center">📷 <span data-i18n="upload">Загрузить</span></button>
+                    <img id="imgPreview" class="mt-2 rounded-lg max-h-32 mx-auto hidden">
+                </div>
+                <p id="tradeError" class="text-red-400 text-sm text-center hidden"></p>
+                <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium" data-i18n="addTrade">Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Goal Modal -->
+    <div id="goalModal" class="modal fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-50">
+        <div class="card border rounded-2xl p-6 w-full max-w-md animate-slide">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" data-i18n="addGoal">Добавить цель</h3>
+                <button onclick="closeGoalModal()" class="text-muted hover:text-white text-2xl">&times;</button>
+            </div>
+            <form id="goalForm" class="space-y-4">
+                <input type="text" id="goalTitle" class="w-full border rounded-lg p-3" placeholder="Название цели" required>
+                <input type="number" step="0.01" id="goalTarget" class="w-full border rounded-lg p-3" placeholder="Целевая сумма" required>
+                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium" data-i18n="save">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Strategy Modal -->
+    <div id="strategyModal" class="modal fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-50">
+        <div class="card border rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" id="strategyModalTitle" data-i18n="addStrategy">Добавить стратегию</h3>
+                <button onclick="closeStrategyModal()" class="text-muted hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <form id="strategyForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-muted mb-1" data-i18n="name">Название</label>
+                    <input type="text" id="strategyTitle" class="w-full border rounded-lg p-3" placeholder="Breakout" required>
+                </div>
+                <div>
+                    <label class="block text-sm text-muted mb-1" data-i18n="rules">Правила</label>
+                    <textarea id="strategyRules" class="w-full border rounded-lg p-3 h-28" placeholder="Правила стратегии..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm text-muted mb-1" data-i18n="examples">Примеры (скрины)</label>
+                    <input type="file" id="strategyImages" accept="image/*" multiple class="hidden" onchange="addStrategyImages(this)">
+                    <button type="button" onclick="document.getElementById('strategyImages').click()" class="w-full card-inner border-2 border-dashed rounded-lg p-4 text-center">🖼️ <span data-i18n="upload">Загрузить</span></button>
+                    <div id="strategyImgPreview" class="mt-3 grid grid-cols-3 gap-2"></div>
+                </div>
+                <p id="strategyError" class="text-red-400 text-sm text-center hidden"></p>
+                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium" data-i18n="save">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Trade Detail Modal -->
+    <div id="detailModal" class="modal fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-50">
+        <div class="card border rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" data-i18n="tradeDetails">Детали сделки</h3>
+                <button onclick="closeDetailModal()" class="text-muted hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+
+    <!-- APK Info Modal -->
+    <div id="apkModal" class="modal fixed inset-0 bg-black/50 flex items-center justify-center p-4 hidden z-50">
+        <div class="card border rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">APK (Android)</h3>
+                <button onclick="closeApkModal()" class="text-muted hover:text-white text-2xl">&times;</button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <p class="text-muted">APK нельзя скачать напрямую из этого HTML-файла. Его нужно собрать из PWA.</p>
+                <div class="card-inner rounded-xl p-4">
+                    <p class="font-semibold mb-2">Вариант 1: PWA Builder (проще)</p>
+                    <ol class="list-decimal ml-5 space-y-1">
+                        <li>Разместите приложение на хостинге (GitHub Pages / Netlify / Vercel).</li>
+                        <li>Откройте <a class="text-blue-400 underline" href="https://www.pwabuilder.com/" target="_blank" rel="noopener">pwabuilder.com</a></li>
+                        <li>Вставьте URL вашего сайта → Build → Android → скачайте APK/AAB.</li>
+                    </ol>
+                </div>
+                <div class="card-inner rounded-xl p-4">
+                    <p class="font-semibold mb-2">Вариант 2: Bubblewrap (для продвинутых)</p>
+                    <ol class="list-decimal ml-5 space-y-1">
+                        <li>Установите Node.js и Java (JDK).</li>
+                        <li>Установите bubblewrap: <code class="px-1 py-0.5 rounded bg-black/30">npm i -g @bubblewrap/cli</code></li>
+                        <li>Соберите APK из вашего URL PWA.</li>
+                    </ol>
+                </div>
+                <div class="card-inner rounded-xl p-4">
+                    <p class="font-semibold mb-2">Альтернатива: установить как PWA</p>
+                    <p class="text-muted">На Android откройте сайт в Chrome → меню → «Установить приложение» / «Добавить на главный экран».</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Translations
+        const translations = {
+            ru: {
+                login: 'Войти', register: 'Зарегистрироваться', noAccount: 'Нет аккаунта?', hasAccount: 'Есть аккаунт?',
+                rememberMe: 'Запомнить меня',
+                totalPnl: 'Общий P&L', totalTrades: 'Всего сделок', equityCurve: 'Кривая баланса',
+                avgWinLoss: 'Avg Win / Avg Loss', avgRR: 'Avg Risk/Reward', bestTrade: 'Лучшая сделка',
+                worstTrade: 'Худшая сделка', winLoss: 'Выигрыши / Проигрыши', goals: 'Цели', add: 'Добавить',
+                recentTrades: 'Последние сделки', strategies: 'Стратегии',
+                home: 'Главная', calendar: 'Календарь', analytics: 'Аналитика',
+                settings: 'Настройки', theme: 'Тема', dark: 'Тёмная', light: 'Светлая', language: 'Язык',
+                currency: 'Валюта', notifications: 'Уведомления', reminderAt20: 'Напоминание в 20:00',
+                reminderDesc: 'Записать сделки за день', cancel: 'Отмена', newTrade: 'Новая сделка',
+                date: 'Дата', time: 'Время', pair: 'Пара/Актив', type: 'Тип', result: 'Результат',
+                notes: 'Заметки', screenshot: 'Скриншот', upload: 'Загрузить',
+                save: 'Сохранить', addTrade: 'Добавить', addGoal: 'Добавить цель', tradeDetails: 'Детали сделки',
+                pnlByTime: 'P&L по времени', byDayOfWeek: 'По дням недели', byMonth: 'По месяцам', byHour: 'По часам',
+                analysisByAssets: 'Анализ по активам',
+                noTrades: 'Нет сделок', noGoals: 'Нет целей', delete: 'Удалить', trades: 'Сделок',
+                Mon: 'Пн', Tue: 'Вт', Wed: 'Ср', Thu: 'Чт', Fri: 'Пт', Sat: 'Сб', Sun: 'Вс',
+                months: ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+                fillAllFields: 'Заполните все поля', passMin4: 'Пароль минимум 4 символа',
+                passNoMatch: 'Пароли не совпадают', emailExists: 'Email уже зарегистрирован',
+                userNotFound: 'Пользователь не найден', wrongPass: 'Неверный пароль',
+                storageFull: 'Недостаточно памяти в браузере. Уменьшите размер изображения или удалите старые сделки.',
+                asset: 'Актив', pnl: 'P&L', wr: 'WR',
+                accountSize: 'Размер аккаунта', accountSizeHint: 'Введите размер аккаунта в выбранной валюте',
+                edit: 'Изменить', later: 'Позже',
+                addStrategy: 'Добавить стратегию', name: 'Название', rules: 'Правила', examples: 'Примеры (скрины)',
+                strategy: 'Стратегия', noneStrategy: 'Без стратегии', noStrategies: 'Нет стратегий'
+            },
+            en: {
+                login: 'Login', register: 'Register', noAccount: 'No account?', hasAccount: 'Have account?',
+                rememberMe: 'Remember me',
+                totalPnl: 'Total P&L', totalTrades: 'Total trades', equityCurve: 'Equity Curve',
+                avgWinLoss: 'Avg Win / Avg Loss', avgRR: 'Avg Risk/Reward', bestTrade: 'Best trade',
+                worstTrade: 'Worst trade', winLoss: 'Wins / Losses', goals: 'Goals', add: 'Add',
+                recentTrades: 'Recent trades', strategies: 'Strategies',
+                home: 'Home', calendar: 'Calendar', analytics: 'Analytics',
+                settings: 'Settings', theme: 'Theme', dark: 'Dark', light: 'Light', language: 'Language',
+                currency: 'Currency', notifications: 'Notifications', reminderAt20: 'Reminder at 20:00',
+                reminderDesc: 'Record today\'s trades', cancel: 'Cancel', newTrade: 'New trade',
+                date: 'Date', time: 'Time', pair: 'Pair/Asset', type: 'Type', result: 'Result',
+                notes: 'Notes', screenshot: 'Screenshot', upload: 'Upload',
+                save: 'Save', addTrade: 'Add', addGoal: 'Add goal', tradeDetails: 'Trade details',
+                pnlByTime: 'P&L by time', byDayOfWeek: 'By day of week', byMonth: 'By month', byHour: 'By hour',
+                analysisByAssets: 'Analysis by assets',
+                noTrades: 'No trades', noGoals: 'No goals', delete: 'Delete', trades: 'Trades',
+                Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sat: 'Sat', Sun: 'Sun',
+                months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+                fillAllFields: 'Fill all fields', passMin4: 'Password min 4 characters',
+                passNoMatch: 'Passwords don\'t match', emailExists: 'Email already registered',
+                userNotFound: 'User not found', wrongPass: 'Wrong password',
+                storageFull: 'Browser storage is full. Reduce image size or delete old trades.',
+                asset: 'Asset', pnl: 'P&L', wr: 'WR',
+                accountSize: 'Account size', accountSizeHint: 'Enter your account size in the selected currency',
+                edit: 'Edit', later: 'Later',
+                addStrategy: 'Add strategy', name: 'Name', rules: 'Rules', examples: 'Examples (screens)',
+                strategy: 'Strategy', noneStrategy: 'No strategy', noStrategies: 'No strategies'
+            }
+        };
+
+        // Currency rates to USD
+        // Stores: how many units of currency equals 1 USD (e.g., RUB=92.5)
+        const currencyRates = {
+            USD: 1, EUR: 0.92, GBP: 0.79, JPY: 154.5, CNY: 7.24, RUB: 92.5, UAH: 41.2, KZT: 450,
+            BYN: 3.27, INR: 83.4, KRW: 1350, BRL: 5.05, CAD: 1.37, AUD: 1.53, CHF: 0.88, TRY: 32.1,
+            PLN: 3.95, CZK: 23.4, SEK: 10.5, NOK: 10.8, DKK: 6.87, HKD: 7.81, SGD: 1.34, NZD: 1.65,
+            MXN: 17.2, ZAR: 18.5, THB: 35.8, MYR: 4.72, IDR: 15800, PHP: 56.2, VND: 24850, AED: 3.67,
+            SAR: 3.75, ILS: 3.72, BTC: 0.000015, ETH: 0.00029, USDT: 1
+        };
+
+        const languages = [
+            {code:'ru',name:'Русский',flag:'🇷🇺'},{code:'en',name:'English',flag:'🇬🇧'},
+            {code:'es',name:'Español',flag:'🇪🇸'},{code:'de',name:'Deutsch',flag:'🇩🇪'},
+            {code:'fr',name:'Français',flag:'🇫🇷'},{code:'it',name:'Italiano',flag:'🇮🇹'},
+            {code:'pt',name:'Português',flag:'🇵🇹'},{code:'zh',name:'中文',flag:'🇨🇳'},
+            {code:'ja',name:'日本語',flag:'🇯🇵'},{code:'ko',name:'한국어',flag:'🇰🇷'},
+            {code:'ar',name:'العربية',flag:'🇸🇦'},{code:'hi',name:'हिन्दी',flag:'🇮🇳'},
+            {code:'tr',name:'Türkçe',flag:'🇹🇷'},{code:'pl',name:'Polski',flag:'🇵🇱'},
+            {code:'uk',name:'Українська',flag:'🇺🇦'},{code:'nl',name:'Nederlands',flag:'🇳🇱'},
+            {code:'sv',name:'Svenska',flag:'🇸🇪'},{code:'cs',name:'Čeština',flag:'🇨🇿'},
+            {code:'vi',name:'Tiếng Việt',flag:'🇻🇳'},{code:'th',name:'ไทย',flag:'🇹🇭'}
+        ];
+
+        const currencies = [
+            {code:'USD',symbol:'$',name:'US Dollar'},{code:'EUR',symbol:'€',name:'Euro'},
+            {code:'GBP',symbol:'£',name:'British Pound'},{code:'JPY',symbol:'¥',name:'Japanese Yen'},
+            {code:'CNY',symbol:'¥',name:'Chinese Yuan'},{code:'RUB',symbol:'₽',name:'Russian Ruble'},
+            {code:'UAH',symbol:'₴',name:'Ukrainian Hryvnia'},{code:'KZT',symbol:'₸',name:'Kazakhstani Tenge'},
+            {code:'BYN',symbol:'Br',name:'Belarusian Ruble'},{code:'INR',symbol:'₹',name:'Indian Rupee'},
+            {code:'KRW',symbol:'₩',name:'South Korean Won'},{code:'BRL',symbol:'R$',name:'Brazilian Real'},
+            {code:'CAD',symbol:'C$',name:'Canadian Dollar'},{code:'AUD',symbol:'A$',name:'Australian Dollar'},
+            {code:'CHF',symbol:'Fr',name:'Swiss Franc'},{code:'TRY',symbol:'₺',name:'Turkish Lira'},
+            {code:'PLN',symbol:'zł',name:'Polish Zloty'},{code:'CZK',symbol:'Kč',name:'Czech Koruna'},
+            {code:'SEK',symbol:'kr',name:'Swedish Krona'},{code:'NOK',symbol:'kr',name:'Norwegian Krone'},
+            {code:'DKK',symbol:'kr',name:'Danish Krone'},{code:'HKD',symbol:'HK$',name:'Hong Kong Dollar'},
+            {code:'SGD',symbol:'S$',name:'Singapore Dollar'},{code:'NZD',symbol:'NZ$',name:'New Zealand Dollar'},
+            {code:'MXN',symbol:'$',name:'Mexican Peso'},{code:'ZAR',symbol:'R',name:'South African Rand'},
+            {code:'THB',symbol:'฿',name:'Thai Baht'},{code:'MYR',symbol:'RM',name:'Malaysian Ringgit'},
+            {code:'IDR',symbol:'Rp',name:'Indonesian Rupiah'},{code:'PHP',symbol:'₱',name:'Philippine Peso'},
+            {code:'VND',symbol:'₫',name:'Vietnamese Dong'},{code:'AED',symbol:'د.إ',name:'UAE Dirham'},
+            {code:'SAR',symbol:'﷼',name:'Saudi Riyal'},{code:'ILS',symbol:'₪',name:'Israeli Shekel'},
+            {code:'BTC',symbol:'₿',name:'Bitcoin'},{code:'ETH',symbol:'Ξ',name:'Ethereum'},
+            {code:'USDT',symbol:'₮',name:'Tether'}
+        ];
+
+        // Safe settings helpers
+        function safeJsonParse(str, fallback) {
+            try {
+                const v = JSON.parse(str);
+                return (v === null || v === undefined) ? fallback : v;
+            } catch (e) {
+                return fallback;
+            }
+        }
+        function getStoredTheme() {
+            const th = localStorage.getItem('theme') || 'dark';
+            return (th === 'light' || th === 'dark') ? th : 'dark';
+        }
+        function getStoredLang() {
+            const l = (localStorage.getItem('lang') || 'ru').toLowerCase();
+            return translations[l] ? l : 'ru';
+        }
+        function getStoredCurrency() {
+            const fallback = { code: 'USD', symbol: '$' };
+            const parsed = safeJsonParse(localStorage.getItem('currency') || '', null);
+            const code = parsed?.code;
+            const c = currencies.find(x => x.code === code);
+            return c ? { code: c.code, symbol: c.symbol } : fallback;
+        }
+
+        // State
+        let currentUser = null;
+        let trades = [];
+        let goals = [];
+        let strategies = [];
+        let accountSize = null; // number in current selected currency
+
+        let settings = {
+            theme: getStoredTheme(),
+            lang: getStoredLang(),
+            currency: getStoredCurrency(),
+            notifications: localStorage.getItem('notifications') === 'true'
+        };
+
+        let tempSettings = {};
+        let originalSettings = {};
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let charts = {};
+        let deferredPrompt = null;
+
+        // ===== Auth =====
+        function getUsers() {
+            return safeJsonParse(localStorage.getItem('users') || '', {});
+        }
+        function saveUsers(u) {
+            try {
+                localStorage.setItem('users', JSON.stringify(u));
+                return true;
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('authError');
+            el.textContent = msg; el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
+        }
+
+        function showRegister() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+        }
+
+        function showLogin() {
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+        }
+
+        // Remember me
+        function setRememberedCreds(email, pass) {
+            try {
+                localStorage.setItem('rememberEmail', email);
+                localStorage.setItem('rememberPass', pass);
+            } catch (e) {}
+        }
+        function clearRememberedCreds() {
+            try {
+                localStorage.removeItem('rememberEmail');
+                localStorage.removeItem('rememberPass');
+            } catch (e) {}
+        }
+        function getRememberedCreds() {
+            return {
+                email: localStorage.getItem('rememberEmail') || '',
+                pass: localStorage.getItem('rememberPass') || ''
+            };
+        }
+        function applyRememberedCredsToForms() {
+            const { email, pass } = getRememberedCreds();
+            const le = document.getElementById('loginEmail');
+            const lp = document.getElementById('loginPassword');
+            const re = document.getElementById('regEmail');
+            const rp = document.getElementById('regPassword');
+            const rc = document.getElementById('regConfirm');
+            if (le && email) le.value = email;
+            if (lp && pass) lp.value = pass;
+            if (re && email) re.value = email;
+            if (rp && pass) rp.value = pass;
+            if (rc && pass) rc.value = pass;
+        }
+
+        function register() {
+            const t = translations[settings.lang] || translations.ru;
+            const email = document.getElementById('regEmail').value.trim();
+            const pass = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regConfirm').value;
+            if (!email || !pass) return showError(t.fillAllFields);
+            if (pass.length < 4) return showError(t.passMin4);
+            if (pass !== confirm) return showError(t.passNoMatch);
+
+            const users = getUsers();
+            if (users[email]) return showError(t.emailExists);
+
+            users[email] = { password: pass, trades: [], goals: [], strategies: [], accountSize: null };
+            const ok = saveUsers(users);
+            if (!ok) return showError(t.storageFull);
+
+            const remember = document.getElementById('rememberMeRegister')?.checked;
+            if (remember) setRememberedCreds(email, pass);
+            else clearRememberedCreds();
+
+            loginUser(email, users[email]);
+        }
+
+        function login() {
+            const t = translations[settings.lang] || translations.ru;
+            const email = document.getElementById('loginEmail').value.trim();
+            const pass = document.getElementById('loginPassword').value;
+            if (!email || !pass) return showError(t.fillAllFields);
+
+            const users = getUsers();
+            if (!users[email]) return showError(t.userNotFound);
+            if (users[email].password !== pass) return showError(t.wrongPass);
+
+            const remember = document.getElementById('rememberMeLogin')?.checked;
+            if (remember) setRememberedCreds(email, pass);
+            else clearRememberedCreds();
+
+            loginUser(email, users[email]);
+        }
+
+        function loginUser(email, data) {
+            currentUser = email;
+            trades = Array.isArray(data.trades) ? data.trades : [];
+            goals = Array.isArray(data.goals) ? data.goals : [];
+            strategies = Array.isArray(data.strategies) ? data.strategies : [];
+            accountSize = (Number.isFinite(Number(data.accountSize))) ? Number(data.accountSize) : null;
+
+            localStorage.setItem('currentUser', email);
+
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            document.getElementById('userEmail').textContent = email;
+
+            applyLanguage();
+            renderAll();
+
+            // Ask for account size if missing
+            if (!accountSize || accountSize <= 0) {
+                openAccountModal(true);
+            }
+        }
+
+        function logout() {
+            saveData();
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            document.getElementById('app').classList.add('hidden');
+            document.getElementById('authScreen').classList.remove('hidden');
+            applyRememberedCredsToForms();
+        }
+
+        function saveData() {
+            if (!currentUser) return { ok: false, error: 'no-user' };
+            const users = getUsers();
+            if (!users[currentUser]) return { ok: false, error: 'user-missing' };
+
+            users[currentUser].trades = trades;
+            users[currentUser].goals = goals;
+            users[currentUser].strategies = strategies;
+            users[currentUser].accountSize = accountSize;
+
+            const ok = saveUsers(users);
+            return ok ? { ok: true } : { ok: false, error: 'storage-full' };
+        }
+
+        function checkAuth() {
+            const saved = localStorage.getItem('currentUser');
+            if (!saved) return false;
+            const users = getUsers();
+            if (users[saved]) { loginUser(saved, users[saved]); return true; }
+            return false;
+        }
+
+        // ===== Currency =====
+        function convertAmount(amount, fromCurrency, toCurrency) {
+            const a = Number(amount);
+            if (!Number.isFinite(a)) return 0;
+            if (fromCurrency === toCurrency) return a;
+            const fromRate = Number(currencyRates[fromCurrency] ?? 1);
+            const toRate = Number(currencyRates[toCurrency] ?? 1);
+            if (!Number.isFinite(fromRate) || fromRate <= 0 || !Number.isFinite(toRate) || toRate <= 0) return a;
+
+            // 1 USD = fromRate FROM -> FROM to USD: a / fromRate
+            const usdAmount = a / fromRate;
+            return usdAmount * toRate;
+        }
+
+        // ===== Language =====
+        function applyLanguage() {
+            const t = translations[settings.lang] || translations.ru;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) el.textContent = t[key];
+            });
+
+            const weekDays = document.getElementById('weekDays');
+            if (weekDays) {
+                weekDays.innerHTML = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+                    .map(d => `<span class="text-muted">${t[d]}</span>`).join('');
+            }
+
+            // Update strategy select placeholder
+            renderStrategySelectOptions();
+        }
+
+        // Smooth transition
+        function fadeContent(callback) {
+            const pages = document.querySelectorAll('.fade-transition');
+            pages.forEach(p => p.classList.add('fade-out'));
+            setTimeout(() => {
+                callback();
+                pages.forEach(p => p.classList.remove('fade-out'));
+            }, 200);
+        }
+
+        // ===== Pages =====
+        function showPage(name) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('page' + name).classList.add('active');
+            document.getElementById('nav' + name).classList.add('active');
+            if (name === 'Calendar') renderCalendar();
+            if (name === 'Analytics') renderAnalytics();
+        }
+
+        // ===== Theme =====
+        function setTheme(theme) {
+            settings.theme = theme;
+            localStorage.setItem('theme', theme);
+            document.body.className = theme === 'light' ? 'light min-h-screen pb-20' : 'min-h-screen pb-20';
+        }
+
+        function setTempTheme(theme) {
+            tempSettings.theme = theme;
+            document.body.className = theme === 'light' ? 'light min-h-screen pb-20' : 'min-h-screen pb-20';
+            updateThemeButtons();
+        }
+
+        function updateThemeButtons() {
+            const theme = tempSettings.theme || settings.theme;
+            document.getElementById('btnDark').className = `flex-1 card border rounded-lg p-3 flex items-center justify-center gap-2 ${theme === 'dark' ? 'ring-2 ring-blue-500' : ''}`;
+            document.getElementById('btnLight').className = `flex-1 card border rounded-lg p-3 flex items-center justify-center gap-2 ${theme === 'light' ? 'ring-2 ring-blue-500' : ''}`;
+        }
+
+        // ===== Language/Currency filtering =====
+        function filterLangs() {
+            const q = document.getElementById('langSearch').value.toLowerCase();
+            const filtered = languages.filter(l => l.name.toLowerCase().includes(q) || l.code.includes(q));
+            const selected = tempSettings.lang || settings.lang;
+            document.getElementById('langList').innerHTML = filtered.map(l =>
+                `<div onclick="selectTempLang('${l.code}')" class="dropdown-item p-3 rounded-lg cursor-pointer flex items-center gap-3 ${selected === l.code ? 'ring-2 ring-blue-500 bg-blue-500/30' : 'hover:bg-blue-500/10'}">${l.flag} <span>${l.name}</span></div>`
+            ).join('');
+        }
+
+        function selectTempLang(code) {
+            tempSettings.lang = code;
+            filterLangs();
+        }
+
+        function filterCurrencies() {
+            const q = document.getElementById('currencySearch').value.toLowerCase();
+            const filtered = currencies.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || c.symbol.includes(q));
+            const selected = tempSettings.currency ? tempSettings.currency.code : settings.currency.code;
+            document.getElementById('currencyList').innerHTML = filtered.map(c =>
+                `<div onclick="selectTempCurrency('${c.code}')" class="dropdown-item p-3 rounded-lg cursor-pointer flex items-center gap-2 ${selected === c.code ? 'ring-2 ring-blue-500 bg-blue-500/30' : 'hover:bg-blue-500/10'}"><span class="text-xl">${c.symbol}</span> <span>${c.code}</span> <span class="text-muted text-sm">- ${c.name}</span></div>`
+            ).join('');
+        }
+
+        function selectTempCurrency(code) {
+            const prevCode = (tempSettings.currency ? tempSettings.currency.code : settings.currency.code);
+            const c = currencies.find(x => x.code === code);
+            if (!c) return;
+
+            // If user already typed account size, convert the input for better UX
+            const inp = document.getElementById('accountSizeInput');
+            const v = parseMoneyInput(inp?.value);
+            if (v !== null) {
+                const converted = convertAmount(v, prevCode, c.code);
+                if (Number.isFinite(converted)) {
+                    inp.value = trimTrailingZeros(converted.toFixed(2));
+                    tempSettings.accountSize = converted;
+                }
+            }
+
+            tempSettings.currency = { code: c.code, symbol: c.symbol };
+            filterCurrencies();
+        }
+
+        // ===== Settings =====
+        function openSettings() {
+            originalSettings = {
+                theme: settings.theme,
+                lang: settings.lang,
+                currency: { ...settings.currency },
+                notifications: settings.notifications,
+                accountSize
+            };
+
+            tempSettings = {
+                theme: settings.theme,
+                lang: settings.lang,
+                currency: { ...settings.currency },
+                accountSize
+            };
+
+            document.getElementById('settingsModal').classList.remove('hidden');
+            document.getElementById('notifyEnabled').checked = settings.notifications;
+            document.getElementById('langSearch').value = '';
+            document.getElementById('currencySearch').value = '';
+            document.getElementById('accountSizeInput').value = (accountSize && accountSize > 0) ? trimTrailingZeros(accountSize.toFixed(2)) : '';
+
+            updateThemeButtons();
+            filterLangs();
+            filterCurrencies();
+        }
+
+        function onAccountSizeInput() {
+            const v = parseMoneyInput(document.getElementById('accountSizeInput')?.value);
+            tempSettings.accountSize = v;
+        }
+
+        function closeSettingsCancel() {
+            settings.theme = originalSettings.theme;
+            settings.lang = originalSettings.lang;
+            settings.currency = { ...originalSettings.currency };
+            settings.notifications = originalSettings.notifications;
+            accountSize = originalSettings.accountSize;
+
+            setTheme(originalSettings.theme);
+            tempSettings = {};
+            document.getElementById('settingsModal').classList.add('hidden');
+            renderAll();
+        }
+
+        function closeSettingsOk() {
+            const oldCurrency = settings.currency.code;
+            const newCurrency = tempSettings.currency ? tempSettings.currency.code : settings.currency.code;
+            const oldLang = settings.lang;
+            const newLang = tempSettings.lang || settings.lang;
+
+            // Apply theme
+            if (tempSettings.theme) {
+                settings.theme = tempSettings.theme;
+                localStorage.setItem('theme', settings.theme);
+                setTheme(settings.theme);
+            }
+
+            // Apply notifications
+            settings.notifications = document.getElementById('notifyEnabled').checked;
+            localStorage.setItem('notifications', settings.notifications);
+            if (settings.notifications) requestNotificationPermission();
+
+            const currencyObj = currencies.find(c => c.code === newCurrency) || currencies.find(c => c.code === oldCurrency) || { code: 'USD', symbol: '$' };
+
+            // Apply changes with fade
+            fadeContent(() => {
+                // Language
+                settings.lang = translations[newLang] ? newLang : 'ru';
+                localStorage.setItem('lang', settings.lang);
+
+                // Currency convert
+                if (newCurrency !== oldCurrency) {
+                    try {
+                        trades = trades.map(t => {
+                            const r = convertAmount(parseFloat(t.result), oldCurrency, newCurrency);
+                            return { ...t, result: Number.isFinite(r) ? r.toFixed(2) : t.result };
+                        });
+
+                        goals = goals.map(g => {
+                            const tg = convertAmount(g.target, oldCurrency, newCurrency);
+                            return { ...g, target: Number.isFinite(tg) ? tg : g.target };
+                        });
+
+                        if (accountSize && accountSize > 0) {
+                            const convAcc = convertAmount(accountSize, oldCurrency, newCurrency);
+                            if (Number.isFinite(convAcc)) accountSize = convAcc;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                // Set currency object
+                settings.currency = { code: currencyObj.code, symbol: currencyObj.symbol };
+                localStorage.setItem('currency', JSON.stringify(settings.currency));
+
+                // Account size from input (already in selected currency)
+                const v = parseMoneyInput(document.getElementById('accountSizeInput')?.value);
+                if (v !== null && Number.isFinite(v) && v >= 0) accountSize = v;
+
+                applyLanguage();
+                saveData();
+                renderAll();
+            });
+
+            tempSettings = {};
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        // ===== Notifications =====
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+        }
+
+        function scheduleNotification() {
+            if (!settings.notifications) return;
+            const now = new Date();
+            const target = new Date();
+            target.setHours(20, 0, 0, 0);
+            if (now > target) target.setDate(target.getDate() + 1);
+            const delay = target - now;
+            setTimeout(() => {
+                if (Notification.permission === 'granted' && settings.notifications) {
+                    new Notification('P&L Trading Journal', { body: translations[settings.lang]?.reminderDesc || 'Record today\'s trades!' });
+                }
+                scheduleNotification();
+            }, delay);
+        }
+
+        // ===== Helpers =====
+        function parseMoneyInput(v) {
+            if (v === null || v === undefined) return null;
+            const s = String(v).trim();
+            if (!s) return null;
+            const cleaned = s.replace(/[^0-9+\-.,]/g, '').replace(',', '.');
+            if (!cleaned) return null;
+            const num = Number(cleaned);
+            return Number.isFinite(num) ? num : null;
+        }
+
+        function trimTrailingZeros(s) {
+            return String(s)
+                .replace(/\.0+$/, '')
+                .replace(/(\.\d*[1-9])0+$/, '$1');
+        }
+
+        function normalizeRR(rr) {
+            if (!rr) return '';
+            const s = String(rr).trim();
+            const m = s.match(/^\s*(\d+(?:[\.,]\d+)?)\s*:\s*(\d+(?:[\.,]\d+)?)\s*$/);
+            if (!m) return s;
+            const a = trimTrailingZeros(m[1].replace(',', '.'));
+            const b = trimTrailingZeros(m[2].replace(',', '.'));
+            return `${a}:${b}`;
+        }
+
+        function formatRatioValue(x) {
+            const n = Number(x);
+            if (!Number.isFinite(n)) return '0';
+            return trimTrailingZeros(n.toFixed(1));
+        }
+
+        function getStrategyById(id) {
+            return strategies.find(s => s.id === id) || null;
+        }
+
+        // ===== Account Size =====
+        function openAccountModal(prefillFromSettings = false) {
+            const inp = document.getElementById('accountModalInput');
+            const err = document.getElementById('accountModalError');
+            if (err) err.classList.add('hidden');
+            if (inp) inp.value = (accountSize && accountSize > 0) ? trimTrailingZeros(accountSize.toFixed(2)) : '';
+            document.getElementById('accountModal').classList.remove('hidden');
+        }
+
+        function closeAccountModal() {
+            document.getElementById('accountModal').classList.add('hidden');
+        }
+
+        function saveAccountSizeFromModal() {
+            const t = translations[settings.lang] || translations.ru;
+            const inp = document.getElementById('accountModalInput');
+            const err = document.getElementById('accountModalError');
+            const v = parseMoneyInput(inp?.value);
+            if (v === null || !Number.isFinite(v) || v <= 0) {
+                err.textContent = t.fillAllFields;
+                err.classList.remove('hidden');
+                return;
+            }
+            accountSize = v;
+            const res = saveData();
+            if (!res.ok) {
+                err.textContent = t.storageFull;
+                err.classList.remove('hidden');
+                return;
+            }
+            closeAccountModal();
+            renderStats();
+        }
+
+        // ===== Stats =====
+        function calculateStats(list = trades) {
+            let totalPnl = 0, wins = 0, losses = 0, longs = 0, shorts = 0;
+            let grossProfit = 0, grossLoss = 0;
+            let best = 0, worst = 0;
+
+            // equityPnl keeps cumulative P&L (starts at 0)
+            const equityPnl = [0];
+
+            const sorted = [...list].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+
+            sorted.forEach(t => {
+                const r = parseFloat(t.result);
+                totalPnl += r;
+                equityPnl.push(totalPnl);
+                if (r > 0) { wins++; grossProfit += r; if (r > best) best = r; }
+                else if (r < 0) { losses++; grossLoss += Math.abs(r); if (r < worst) worst = r; }
+                if (t.type === 'long') longs++; else if (t.type === 'short') shorts++;
+            });
+
+            const count = list.length;
+            const winRate = count > 0 ? (wins / count * 100) : 0;
+            const avgWin = wins > 0 ? grossProfit / wins : 0;
+            const avgLoss = losses > 0 ? grossLoss / losses : 0;
+
+            // Max Drawdown based on balance (accountSize + cumulative pnl)
+            // Example: account 90 -> drop to 81 => 10%
+            const hasAcc = Number.isFinite(Number(accountSize)) && Number(accountSize) > 0;
+            const base = hasAcc ? Number(accountSize) : 0;
+            const equity = equityPnl.map(v => base + v);
+
+            let maxDD = 0;
+            let peakEquity = equity.length ? equity[0] : base;
+            for (const e of equity) {
+                if (e > peakEquity) peakEquity = e;
+                const dd = peakEquity - e;
+                if (dd > maxDD) maxDD = dd;
+            }
+            const denom = peakEquity > 0 ? peakEquity : (hasAcc ? base : 0);
+            const maxDDPercent = denom > 0 ? (maxDD / denom * 100) : 0;
+
+            let totalRR = 0, rrCount = 0;
+            list.forEach(t => {
+                if (t.rr) {
+                    const rr = normalizeRR(t.rr);
+                    const parts = rr.split(':');
+                    if (parts.length === 2) {
+                        const a = Number(parts[0]);
+                        const b = Number(parts[1]);
+                        if (Number.isFinite(a) && Number.isFinite(b) && a > 0) {
+                            totalRR += (b / a);
+                            rrCount++;
+                        }
+                    }
+                }
+            });
+            const avgRR = rrCount > 0 ? totalRR / rrCount : 0;
+
+            return { totalPnl, winRate, count, wins, losses, longs, shorts, avgWin, avgLoss, maxDDPercent, avgRR, best, worst, equity: equityPnl };
+        }
+
+        function renderStats() {
+            const s = calculateStats();
+            const sym = settings.currency.symbol;
+
+            const totalPnlEl = document.getElementById('totalPnl');
+            totalPnlEl.textContent = (s.totalPnl >= 0 ? '+' : '-') + sym + Math.abs(s.totalPnl).toFixed(2);
+            totalPnlEl.className = `text-2xl font-bold currency-value ${s.totalPnl >= 0 ? 'profit' : 'loss'}`;
+
+            const accEl = document.getElementById('accountSizeValue');
+            if (accEl) {
+                accEl.textContent = (accountSize && accountSize > 0) ? `${sym}${trimTrailingZeros(accountSize.toFixed(2))}` : '—';
+            }
+
+            const wrEl = document.getElementById('winRate');
+            wrEl.textContent = s.winRate.toFixed(1) + '%';
+            wrEl.className = `text-2xl font-bold ${s.winRate >= 50 ? 'profit' : 'loss'}`;
+
+            document.getElementById('totalTrades').textContent = s.count;
+            document.getElementById('longCount').textContent = s.longs;
+            document.getElementById('shortCount').textContent = s.shorts;
+
+            document.getElementById('avgWinLoss').textContent = `${sym}${trimTrailingZeros(s.avgWin.toFixed(2))} / ${sym}${trimTrailingZeros(s.avgLoss.toFixed(2))}`;
+            document.getElementById('maxDrawdown').textContent = `-${s.maxDDPercent.toFixed(1)}%`;
+            document.getElementById('avgRR').textContent = `1:${formatRatioValue(s.avgRR)}`;
+            document.getElementById('bestTrade').textContent = '+' + sym + s.best.toFixed(2);
+            document.getElementById('worstTrade').textContent = '-' + sym + Math.abs(s.worst).toFixed(2);
+            document.getElementById('winLossCount').innerHTML = `<span class="profit">${s.wins}</span> / <span class="loss">${s.losses}</span>`;
+        }
+
+        function renderEquityCurve() {
+            const s = calculateStats();
+            const canvas = document.getElementById('equityChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (charts.equity) charts.equity.destroy();
+
+            const hasAcc = Number.isFinite(Number(accountSize)) && Number(accountSize) > 0;
+            const base = hasAcc ? Number(accountSize) : 0;
+            const series = s.equity.map(v => base + v);
+
+            const labels = series.map((_, i) => i);
+
+            charts.equity = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: series,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            display: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { font: { size: 9 }, maxTicksLimit: 3 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== Goals =====
+        function renderGoals() {
+            const t = translations[settings.lang] || translations.ru;
+            const list = document.getElementById('goalsList');
+            if (!list) return;
+            if (goals.length === 0) {
+                list.innerHTML = `<p class="text-muted text-center py-4">${t.noGoals}</p>`;
+                return;
+            }
+            const s = calculateStats();
+            const sym = settings.currency.symbol;
+            list.innerHTML = goals.map((g, i) => {
+                const progress = Math.min(100, Math.max(0, (s.totalPnl / g.target) * 100));
+                return `<div class="card-inner rounded-xl p-3 mb-2">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium">${g.title}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm currency-value">${sym}${s.totalPnl.toFixed(0)} / ${sym}${Number(g.target).toFixed(0)}</span>
+                            <button onclick="deleteGoal(${i})" class="text-red-400 hover:text-red-300 text-lg">×</button>
+                        </div>
+                    </div>
+                    <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full ${progress >= 100 ? 'bg-green-500' : 'bg-blue-500'} transition-all duration-500" style="width:${progress}%"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function deleteGoal(i) {
+            goals.splice(i, 1);
+            saveData();
+            renderGoals();
+        }
+
+        // ===== Strategies =====
+        let strategyModalMode = 'create';
+        let editingStrategyId = null;
+        let strategyImgs = [];
+        let strategyImgProcessing = false;
+
+        function openStrategyModal(id = null) {
+            strategyModalMode = id ? 'edit' : 'create';
+            editingStrategyId = id;
+            strategyImgs = [];
+            strategyImgProcessing = false;
+
+            const t = translations[settings.lang] || translations.ru;
+            const titleEl = document.getElementById('strategyModalTitle');
+            titleEl.textContent = t.addStrategy;
+
+            const errEl = document.getElementById('strategyError');
+            errEl.classList.add('hidden');
+
+            document.getElementById('strategyForm').reset();
+            document.getElementById('strategyImgPreview').innerHTML = '';
+            const fileInput = document.getElementById('strategyImages');
+            if (fileInput) fileInput.value = '';
+
+            if (id) {
+                const s = getStrategyById(id);
+                if (s) {
+                    document.getElementById('strategyTitle').value = s.title || '';
+                    document.getElementById('strategyRules').value = s.rules || '';
+                    strategyImgs = Array.isArray(s.examples) ? [...s.examples] : [];
+                    renderStrategyImagePreview();
+                }
+            }
+
+            document.getElementById('strategyModal').classList.remove('hidden');
+        }
+
+        function closeStrategyModal() {
+            document.getElementById('strategyModal').classList.add('hidden');
+            editingStrategyId = null;
+            strategyImgs = [];
+            strategyImgProcessing = false;
+        }
+
+        async function addStrategyImages(input) {
+            if (!input.files || input.files.length === 0) return;
+            const errEl = document.getElementById('strategyError');
+            const btn = document.querySelector('#strategyForm button[type="submit"]');
+
+            strategyImgProcessing = true;
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+            if (errEl) errEl.classList.add('hidden');
+
+            try {
+                for (const file of Array.from(input.files)) {
+                    const dataUrl = await compressImage(file);
+                    strategyImgs.push(dataUrl);
+                }
+                renderStrategyImagePreview();
+            } catch (e) {
+                console.error(e);
+                if (errEl) {
+                    errEl.textContent = (translations[settings.lang] || translations.ru).storageFull;
+                    errEl.classList.remove('hidden');
+                }
+            } finally {
+                strategyImgProcessing = false;
+                if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+                input.value = '';
+            }
+        }
+
+        function renderStrategyImagePreview() {
+            const wrap = document.getElementById('strategyImgPreview');
+            if (!wrap) return;
+            wrap.innerHTML = strategyImgs.map((src, idx) => `
+                <div class="relative">
+                    <img src="${src}" class="rounded-lg w-full h-20 object-cover" />
+                    <button type="button" onclick="removeStrategyImage(${idx})" class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center">×</button>
+                </div>
+            `).join('');
+        }
+
+        function removeStrategyImage(idx) {
+            strategyImgs.splice(idx, 1);
+            renderStrategyImagePreview();
+        }
+
+        function deleteStrategy(id) {
+            strategies = strategies.filter(s => s.id !== id);
+            // Unlink trades
+            trades = trades.map(tr => (tr.strategyId === id) ? ({ ...tr, strategyId: '' }) : tr);
+            saveData();
+            renderStrategies();
+            renderTrades();
+        }
+
+        function renderStrategies() {
+            const t = translations[settings.lang] || translations.ru;
+            const list = document.getElementById('strategiesList');
+            if (!list) return;
+
+            if (!strategies.length) {
+                list.innerHTML = `<p class="text-muted text-center py-6">${t.noStrategies}</p>`;
+                return;
+            }
+
+            const sym = settings.currency.symbol;
+            list.innerHTML = strategies.map(s => {
+                const subset = trades.filter(tr => tr.strategyId === s.id);
+                const st = calculateStats(subset);
+
+                const pnlClass = st.totalPnl >= 0 ? 'profit' : 'loss';
+                const wrClass = st.winRate >= 50 ? 'profit' : 'loss';
+
+                const examplesHtml = (Array.isArray(s.examples) && s.examples.length)
+                    ? `<div class="grid grid-cols-4 gap-2 mt-3">${s.examples.slice(0, 8).map(src => `<img src="${src}" class="rounded-lg h-14 w-full object-cover"/>`).join('')}</div>`
+                    : '';
+
+                return `
+                    <div class="card-inner rounded-xl p-4 mb-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="font-semibold text-lg">${escapeHtml(s.title || '')}</p>
+                                <div class="flex flex-wrap gap-2 text-xs mt-2">
+                                    <span class="px-2 py-1 rounded bg-blue-500/20">${t.trades}: <b>${st.count}</b></span>
+                                    <span class="px-2 py-1 rounded bg-gray-500/20">Win Rate: <b class="${wrClass}">${st.winRate.toFixed(1)}%</b></span>
+                                    <span class="px-2 py-1 rounded bg-gray-500/20">${t.pnl}: <b class="${pnlClass}">${(st.totalPnl>=0?'+':'-')}${sym}${Math.abs(st.totalPnl).toFixed(2)}</b></span>
+                                    <span class="px-2 py-1 rounded bg-gray-500/20">R:R: <b>1:${formatRatioValue(st.avgRR)}</b></span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2 items-end">
+                                <button onclick="openStrategyModal('${s.id}')" class="text-blue-400 text-sm hover:underline">${t.edit}</button>
+                                <button onclick="deleteStrategy('${s.id}')" class="text-red-400 text-sm hover:underline">${t.delete}</button>
+                            </div>
+                        </div>
+
+                        ${s.rules ? `
+                            <details class="mt-3">
+                                <summary class="cursor-pointer text-sm text-muted">${t.rules}</summary>
+                                <div class="mt-2 text-sm whitespace-pre-wrap">${escapeHtml(s.rules)}</div>
+                            </details>
+                        ` : ''}
+
+                        ${examplesHtml}
+                    </div>
+                `;
+            }).join('');
+
+            renderStrategySelectOptions();
+        }
+
+        function renderStrategySelectOptions() {
+            const select = document.getElementById('tradeStrategy');
+            if (!select) return;
+            const t = translations[settings.lang] || translations.ru;
+
+            const current = select.value;
+            const options = [
+                `<option value="">${t.noneStrategy}</option>`,
+                ...strategies.map(s => `<option value="${s.id}">${escapeHtml(s.title || '')}</option>`)
+            ];
+            select.innerHTML = options.join('');
+            // Restore previously selected value if still exists
+            if (current && strategies.some(s => s.id === current)) select.value = current;
+            else select.value = '';
+        }
+
+        // ===== Trades =====
+        function renderTrades() {
+            const t = translations[settings.lang] || translations.ru;
+            const list = document.getElementById('tradesList');
+            if (!list) return;
+            if (trades.length === 0) {
+                list.innerHTML = `<p class="text-muted text-center py-8">${t.noTrades}</p>`;
+                return;
+            }
+
+            const sorted = [...trades]
+                .map((tr, i) => ({...tr, idx: i}))
+                .sort((a, b) => (b.date + (b.time || '')).localeCompare(a.date + (a.time || '')));
+
+            const sym = settings.currency.symbol;
+            list.innerHTML = sorted.slice(0, 20).map(tr => {
+                const r = parseFloat(tr.result);
+                const strat = tr.strategyId ? getStrategyById(tr.strategyId) : null;
+                const stratBadge = strat ? `<span class="text-[10px] ml-2 px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">${escapeHtml(strat.title)}</span>` : '';
+
+                return `<div onclick="showDetail(${tr.idx})" class="card-inner rounded-xl p-3 cursor-pointer hover:ring-1 hover:ring-blue-500 transition-all">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="font-medium">${escapeHtml(tr.pair)}</span>
+                            <span class="text-xs ml-2 px-2 py-0.5 rounded ${tr.type === 'long' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${tr.type.toUpperCase()}</span>
+                            ${stratBadge}
+                            <p class="text-xs text-muted mt-1">${tr.date} ${tr.time || ''}</p>
+                        </div>
+                        <span class="text-lg font-bold currency-value ${r >= 0 ? 'profit' : 'loss'}">${r >= 0 ? '+' : '-'}${sym}${Math.abs(r).toFixed(2)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function showDetail(i) {
+            const t = translations[settings.lang] || translations.ru;
+            const tr = trades[i];
+            const r = parseFloat(tr.result);
+            const sym = settings.currency.symbol;
+
+            const strat = tr.strategyId ? getStrategyById(tr.strategyId) : null;
+
+            document.getElementById('detailContent').innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-xl font-bold">${escapeHtml(tr.pair)}</span>
+                            <span class="ml-2 px-2 py-1 text-sm rounded ${tr.type === 'long' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${tr.type.toUpperCase()}</span>
+                        </div>
+                        <span class="text-2xl font-bold currency-value ${r >= 0 ? 'profit' : 'loss'}">${r >= 0 ? '+' : '-'}${sym}${Math.abs(r).toFixed(2)}</span>
+                    </div>
+                    <p class="text-muted">${tr.date} ${tr.time || ''}</p>
+                    ${strat ? `<p class="text-sm"><span class="text-muted">${t.strategy}:</span> ${escapeHtml(strat.title)}</p>` : ''}
+                    ${tr.rr ? `<p class="text-sm">R:R: ${escapeHtml(normalizeRR(tr.rr))}</p>` : ''}
+                    ${tr.notes ? `<div class="card-inner rounded-lg p-3"><p class="whitespace-pre-wrap">${escapeHtml(tr.notes)}</p></div>` : ''}
+                    ${tr.image ? `<img src="${tr.image}" class="rounded-xl w-full">` : ''}
+                    <button onclick="deleteTrade(${i})" class="w-full bg-red-500/20 text-red-400 py-3 rounded-lg">${t.delete}</button>
+                </div>`;
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function deleteTrade(i) {
+            trades.splice(i, 1);
+            saveData();
+            closeDetailModal();
+            renderAll();
+        }
+
+        // ===== Calendar =====
+        function renderCalendar() {
+            const t = translations[settings.lang] || translations.ru;
+            const grid = document.getElementById('calendarGrid');
+            const title = document.getElementById('calendarTitle');
+            if (!grid || !title) return;
+
+            title.textContent = `${t.months[currentMonth]} ${currentYear}`;
+
+            const wd = document.getElementById('weekDays');
+            if (wd) {
+                wd.innerHTML = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+                    .map(d => `<span class="text-muted">${t[d]}</span>`).join('');
+            }
+
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            const startDay = firstDay.getDay() || 7;
+
+            const dayPnl = {};
+            trades.forEach(tr => {
+                if (!dayPnl[tr.date]) dayPnl[tr.date] = 0;
+                dayPnl[tr.date] += parseFloat(tr.result);
+            });
+
+            const sym = settings.currency.symbol;
+            let html = '';
+            for (let i = 1; i < startDay; i++) html += '<div></div>';
+
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const pnl = dayPnl[dateStr] || 0;
+                const bg = pnl > 0 ? 'bg-green-500/30' : pnl < 0 ? 'bg-red-500/30' : 'bg-gray-700/30';
+                const today = new Date().toISOString().split('T')[0] === dateStr ? 'ring-2 ring-blue-400' : '';
+                html += `<div onclick="showDayTrades('${dateStr}')" class="${bg} ${today} rounded-lg p-2 text-center cursor-pointer hover:opacity-80 transition-all">
+                    <span class="text-sm">${day}</span>
+                    ${pnl !== 0 ? `<div class="text-xs ${pnl >= 0 ? 'profit' : 'loss'}">${pnl >= 0 ? '+' : '-'}${sym}${Math.abs(pnl).toFixed(0)}</div>` : ''}
+                </div>`;
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderCalendar(); }
+        function nextMonth() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderCalendar(); }
+
+        function showDayTrades(date) {
+            const dayTrades = trades.filter(tr => tr.date === date);
+            const details = document.getElementById('dayDetails');
+            if (!details) return;
+
+            if (dayTrades.length === 0) {
+                details.classList.add('hidden');
+                return;
+            }
+
+            const sym = settings.currency.symbol;
+            document.getElementById('dayDetailsTitle').textContent = date;
+            document.getElementById('dayTradesList').innerHTML = dayTrades.map(tr => {
+                const r = parseFloat(tr.result);
+                const idx = trades.indexOf(tr);
+                return `<div onclick="showDetail(${idx})" class="card-inner rounded-xl p-3 cursor-pointer hover:ring-1 hover:ring-blue-500">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">${escapeHtml(tr.pair)} <span class="text-xs ${tr.type === 'long' ? 'text-green-400' : 'text-red-400'}">${tr.type.toUpperCase()}</span></span>
+                        <span class="font-bold currency-value ${r >= 0 ? 'profit' : 'loss'}">${r >= 0 ? '+' : '-'}${sym}${Math.abs(r).toFixed(2)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+            details.classList.remove('hidden');
+        }
+
+        // ===== Analytics =====
+        function renderAnalytics() {
+            const t = translations[settings.lang] || translations.ru;
+            const sym = settings.currency.symbol;
+
+            // By day of week
+            const byDay = [0,0,0,0,0,0,0];
+            const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => t[d]);
+            trades.forEach(tr => {
+                const d = new Date(tr.date).getDay();
+                const idx = d === 0 ? 6 : d - 1;
+                byDay[idx] += parseFloat(tr.result);
+            });
+
+            if (charts.byDay) charts.byDay.destroy();
+            charts.byDay = new Chart(document.getElementById('chartByDay'), {
+                type: 'bar',
+                data: {
+                    labels: dayLabels,
+                    datasets: [{ data: byDay, backgroundColor: byDay.map(v => v >= 0 ? '#22c55e' : '#ef4444') }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // By month
+            const byMonth = {};
+            trades.forEach(tr => {
+                const m = tr.date.substring(0, 7);
+                if (!byMonth[m]) byMonth[m] = 0;
+                byMonth[m] += parseFloat(tr.result);
+            });
+            const monthKeys = Object.keys(byMonth).sort();
+
+            if (charts.byMonth) charts.byMonth.destroy();
+            charts.byMonth = new Chart(document.getElementById('chartByMonth'), {
+                type: 'bar',
+                data: {
+                    labels: monthKeys,
+                    datasets: [{ data: monthKeys.map(k => byMonth[k]), backgroundColor: monthKeys.map(k => byMonth[k] >= 0 ? '#22c55e' : '#ef4444') }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // By hour
+            const byHour = {};
+            trades.forEach(tr => {
+                if (tr.time) {
+                    const h = tr.time.split(':')[0];
+                    if (!byHour[h]) byHour[h] = 0;
+                    byHour[h] += parseFloat(tr.result);
+                }
+            });
+            const hourKeys = Object.keys(byHour).sort();
+
+            if (charts.byHour) charts.byHour.destroy();
+            charts.byHour = new Chart(document.getElementById('chartByHour'), {
+                type: 'bar',
+                data: {
+                    labels: hourKeys.map(h => h + ':00'),
+                    datasets: [{ data: hourKeys.map(k => byHour[k]), backgroundColor: hourKeys.map(k => byHour[k] >= 0 ? '#22c55e' : '#ef4444') }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // By Asset
+            const byAsset = {};
+            trades.forEach(tr => {
+                if (!byAsset[tr.pair]) byAsset[tr.pair] = { pnl: 0, count: 0, wins: 0 };
+                byAsset[tr.pair].pnl += parseFloat(tr.result);
+                byAsset[tr.pair].count++;
+                if (parseFloat(tr.result) > 0) byAsset[tr.pair].wins++;
+            });
+            const assetKeys = Object.keys(byAsset).sort((a, b) => byAsset[b].pnl - byAsset[a].pnl);
+
+            if (charts.byAsset) charts.byAsset.destroy();
+            charts.byAsset = new Chart(document.getElementById('chartByAsset'), {
+                type: 'doughnut',
+                data: {
+                    labels: assetKeys,
+                    datasets: [{
+                        data: assetKeys.map(k => Math.abs(byAsset[k].pnl)),
+                        backgroundColor: ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316']
+                    }]
+                },
+                options: { responsive: true }
+            });
+
+            document.getElementById('assetTable').innerHTML = `<table class="w-full text-sm">
+                <tr class="text-muted"><th class="text-left p-2">${t.asset}</th><th class="text-right p-2">${t.pnl}</th><th class="text-right p-2">${t.trades}</th><th class="text-right p-2">${t.wr}</th></tr>
+                ${assetKeys.map(k => `<tr class="border-t border-gray-700">
+                    <td class="p-2">${escapeHtml(k)}</td>
+                    <td class="p-2 text-right currency-value ${byAsset[k].pnl >= 0 ? 'profit' : 'loss'}">${byAsset[k].pnl >= 0 ? '+' : '-'}${sym}${Math.abs(byAsset[k].pnl).toFixed(2)}</td>
+                    <td class="p-2 text-right">${byAsset[k].count}</td>
+                    <td class="p-2 text-right">${(byAsset[k].wins / byAsset[k].count * 100).toFixed(0)}%</td>
+                </tr>`).join('')}
+            </table>`;
+
+            // Long vs short
+            const longStats = { pnl: 0, count: 0, wins: 0 };
+            const shortStats = { pnl: 0, count: 0, wins: 0 };
+            trades.forEach(tr => {
+                const r = parseFloat(tr.result);
+                if (tr.type === 'long') { longStats.pnl += r; longStats.count++; if (r > 0) longStats.wins++; }
+                else if (tr.type === 'short') { shortStats.pnl += r; shortStats.count++; if (r > 0) shortStats.wins++; }
+            });
+
+            if (charts.longShort) charts.longShort.destroy();
+            charts.longShort = new Chart(document.getElementById('chartLongShort'), {
+                type: 'pie',
+                data: {
+                    labels: ['Long', 'Short'],
+                    datasets: [{ data: [longStats.count, shortStats.count], backgroundColor: ['#22c55e', '#ef4444'] }]
+                },
+                options: { responsive: true }
+            });
+
+            document.getElementById('longShortStats').innerHTML = `
+                <div class="card-inner rounded-xl p-4">
+                    <p class="text-green-400 font-medium mb-2">Long</p>
+                    <p>${t.trades}: ${longStats.count}</p>
+                    <p>${t.pnl}: <span class="currency-value ${longStats.pnl >= 0 ? 'profit' : 'loss'}">${longStats.pnl >= 0 ? '+' : '-'}${sym}${Math.abs(longStats.pnl).toFixed(2)}</span></p>
+                    <p>Win Rate: ${longStats.count > 0 ? (longStats.wins / longStats.count * 100).toFixed(0) : 0}%</p>
+                </div>
+                <div class="card-inner rounded-xl p-4">
+                    <p class="text-red-400 font-medium mb-2">Short</p>
+                    <p>${t.trades}: ${shortStats.count}</p>
+                    <p>${t.pnl}: <span class="currency-value ${shortStats.pnl >= 0 ? 'profit' : 'loss'}">${shortStats.pnl >= 0 ? '+' : '-'}${sym}${Math.abs(shortStats.pnl).toFixed(2)}</span></p>
+                    <p>Win Rate: ${shortStats.count > 0 ? (shortStats.wins / shortStats.count * 100).toFixed(0) : 0}%</p>
+                </div>`;
+        }
+
+        // ===== Modals =====
+        function openTradeModal() {
+            renderStrategySelectOptions();
+            document.getElementById('tradeModal').classList.remove('hidden');
+            document.getElementById('tradeDate').valueAsDate = new Date();
+            document.getElementById('tradeTime').value = new Date().toTimeString().slice(0, 5);
+            const errEl = document.getElementById('tradeError');
+            if (errEl) errEl.classList.add('hidden');
+        }
+
+        function closeTradeModal() {
+            document.getElementById('tradeModal').classList.add('hidden');
+            document.getElementById('tradeForm').reset();
+            const errEl = document.getElementById('tradeError');
+            if (errEl) errEl.classList.add('hidden');
+            document.getElementById('imgPreview').classList.add('hidden');
+            const fileInput = document.getElementById('tradeImage');
+            if (fileInput) fileInput.value = '';
+            currentImg = null;
+            imageProcessing = false;
+        }
+
+        function openGoalModal() { document.getElementById('goalModal').classList.remove('hidden'); }
+        function closeGoalModal() { document.getElementById('goalModal').classList.add('hidden'); document.getElementById('goalForm').reset(); }
+        function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
+
+        // APK modal
+        function openApkModal() { document.getElementById('apkModal').classList.remove('hidden'); }
+        function closeApkModal() { document.getElementById('apkModal').classList.add('hidden'); }
+
+        // Close modals on backdrop
+        document.querySelectorAll('.modal').forEach(m => {
+            m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
+        });
+
+        // ===== Images (trade + strategies) =====
+        let currentImg = null;
+        let imageProcessing = false;
+
+        async function compressImage(file, maxSide = 1280, quality = 0.75) {
+            const dataURL = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            const img = await new Promise((resolve, reject) => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.onerror = reject;
+                i.src = dataURL;
+            });
+
+            const { width, height } = img;
+            const scale = Math.min(1, maxSide / Math.max(width, height));
+            const w = Math.round(width * scale);
+            const h = Math.round(height * scale);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+
+            return canvas.toDataURL('image/jpeg', quality);
+        }
+
+        async function previewImg(input) {
+            const errEl = document.getElementById('tradeError');
+            const btn = document.querySelector('#tradeForm button[type="submit"]');
+            if (!input.files || !input.files[0]) return;
+
+            imageProcessing = true;
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+            if (errEl) errEl.classList.add('hidden');
+
+            try {
+                const file = input.files[0];
+                currentImg = await compressImage(file);
+
+                const preview = document.getElementById('imgPreview');
+                preview.src = currentImg;
+                preview.classList.remove('hidden');
+            } catch (e) {
+                console.error(e);
+                currentImg = null;
+                if (errEl) {
+                    errEl.textContent = (translations[settings.lang] || translations.ru).storageFull;
+                    errEl.classList.remove('hidden');
+                }
+            } finally {
+                imageProcessing = false;
+                if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+            }
+        }
+
+        // ===== Strategy form submit =====
+        document.getElementById('strategyForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const t = translations[settings.lang] || translations.ru;
+            const errEl = document.getElementById('strategyError');
+
+            if (strategyImgProcessing) {
+                errEl.textContent = (settings.lang === 'en') ? 'Images are still processing. Please wait…' : 'Изображения ещё обрабатываются. Подождите…';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            const title = document.getElementById('strategyTitle').value.trim();
+            const rules = document.getElementById('strategyRules').value;
+
+            if (!title) {
+                errEl.textContent = t.fillAllFields;
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            errEl.classList.add('hidden');
+
+            if (strategyModalMode === 'edit' && editingStrategyId) {
+                strategies = strategies.map(s => s.id === editingStrategyId ? ({
+                    ...s,
+                    title,
+                    rules,
+                    examples: [...strategyImgs]
+                }) : s);
+            } else {
+                strategies.push({
+                    id: 's_' + Math.random().toString(36).slice(2) + Date.now().toString(36),
+                    title,
+                    rules,
+                    examples: [...strategyImgs],
+                    createdAt: Date.now()
+                });
+            }
+
+            const res = saveData();
+            if (!res.ok) {
+                errEl.textContent = t.storageFull;
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            closeStrategyModal();
+            renderStrategies();
+            renderStrategySelectOptions();
+        });
+
+        // ===== Trade form submit =====
+        document.getElementById('tradeForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const t = translations[settings.lang] || translations.ru;
+            const errEl = document.getElementById('tradeError');
+
+            if (imageProcessing) {
+                errEl.textContent = (settings.lang === 'en') ? 'Image is still processing. Please wait…' : 'Изображение ещё обрабатывается. Подождите…';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            const date = document.getElementById('tradeDate').value;
+            const time = document.getElementById('tradeTime').value;
+            const pairRaw = document.getElementById('tradePair').value;
+            const strategyId = document.getElementById('tradeStrategy').value;
+            const type = document.getElementById('tradeType').value;
+            const resultRaw = document.getElementById('tradeResult').value;
+            const rrRaw = document.getElementById('tradeRR').value;
+            const notes = document.getElementById('tradeNotes').value;
+
+            const resultNum = parseMoneyInput(resultRaw);
+            const rr = normalizeRR(rrRaw);
+
+            if (!date || !pairRaw || resultNum === null) {
+                errEl.textContent = t.fillAllFields;
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            errEl.classList.add('hidden');
+
+            const newTrade = {
+                date,
+                time,
+                pair: pairRaw.toUpperCase(),
+                type,
+                result: resultNum.toFixed(2),
+                rr,
+                notes,
+                image: currentImg,
+                strategyId: strategyId || ''
+            };
+
+            trades.push(newTrade);
+            const res = saveData();
+            if (!res.ok) {
+                trades.pop();
+                errEl.textContent = t.storageFull;
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            closeTradeModal();
+            renderAll();
+        });
+
+        // Goal submit
+        document.getElementById('goalForm').addEventListener('submit', e => {
+            e.preventDefault();
+            goals.push({
+                title: document.getElementById('goalTitle').value,
+                target: parseFloat(document.getElementById('goalTarget').value)
+            });
+            saveData();
+            closeGoalModal();
+            renderGoals();
+        });
+
+        // ===== PWA install =====
+        function isIos() {
+            return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+        }
+        function isInStandaloneMode() {
+            return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+        }
+        function updateInstallButtonVisibility() {
+            const btn = document.getElementById('installBtn');
+            if (!btn) return;
+            // Show whenever we are NOT in standalone mode.
+            // If the browser doesn't support the install prompt (e.g., iOS Safari), we still show the button and display instructions.
+            if (!isInStandaloneMode()) btn.classList.remove('hidden');
+            else btn.classList.add('hidden');
+        }
+
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            deferredPrompt = e;
+            updateInstallButtonVisibility();
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            updateInstallButtonVisibility();
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.finally(() => {
+                    deferredPrompt = null;
+                    updateInstallButtonVisibility();
+                });
+            } else {
+                // iOS / Safari fallback
+                const msg = isIos()
+                    ? 'На iPhone: откройте меню «Поделиться» → «На экран Домой».'
+                    : 'Open browser menu and select "Add to Home Screen".';
+                alert(msg);
+            }
+        }
+
+        // ===== Render All =====
+        function renderAll() {
+            renderStats();
+            renderEquityCurve();
+            renderGoals();
+            renderTrades();
+            renderStrategies();
+        }
+
+        // Small helper for HTML safety
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ===== Init =====
+        document.addEventListener('DOMContentLoaded', () => {
+            setTheme(settings.theme);
+            applyLanguage();
+            applyRememberedCredsToForms();
+            updateInstallButtonVisibility();
+
+            if (!checkAuth()) {
+                document.getElementById('authScreen').classList.remove('hidden');
+            }
+            scheduleNotification();
+        });
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            // Relative path for subfolder hosting
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
